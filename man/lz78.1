@@ -1,0 +1,35 @@
+.\" Manpage for lz78.
+.\" Contact gianni.pollina1@gmail.com to correct errors or typos.
+.TH man 1 "02 June 2016" "1.0" "lz78 man page"
+.SH NAME
+lz78 \- compress a set of file
+.SH SYNOPSIS
+lz78 [-option] [arguments]
+.SH DESCRIPTION
+lz78 i a compressor based on a Lempel Ziv 78 algorithm--- lz78.linux(1) instead.
+.SH OPTIONS
+	-c compress a file
+
+	-o output file
+
+	-d decopress a file
+
+	-l info on a .lz78 file
+
+	-s set dictionary size
+.SH EXAMPLES
+	
+Command to compress a matlab script:
+
+		lz78 -o compressed.lz78 -c script.m
+
+	 Command to decompress a compressed file .lz78:
+
+		lz78 -d compressed.lz78
+
+.SH SEE ALSO
+lz78(1)
+.SH BUGS
+No known bugs.
+.SH AUTHOR
+Gianni Pollina (gianni.pollina@gmail.com)

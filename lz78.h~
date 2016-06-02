@@ -1,0 +1,29 @@
+#include <stdint.h>
+#include <stdio.h>
+#include <math.h>
+#include <string.h>
+#include <errno.h>
+ #include <sys/types.h>
+
+struct lz78{
+	uint32_t d_max;
+	char * file_to_compress;
+};
+
+struct hash_key{
+	int father_num;
+	char c;
+};
+
+struct hash_elem{
+	struct hash_key key;
+	uint32_t child_index;
+};
+
+struct hash_elem * hash_table;
+
+void compress(char * str_in, struct lz78 * in);
+
+int hash(int num, char c);
+
+int hash_init(int size);
