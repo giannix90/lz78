@@ -18,29 +18,29 @@
 * along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <stdint.h>
+#include <time.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
-#include <string.h>
-#include <errno.h>
- #include <sys/types.h>
-
-struct bitio{
-	FILE * f; //pointer to the file
-	uint64_t data; // local buffer
-	u_int wp; //write index pointer into the buffer
-	u_int rp; //read index pointer into the buffer
-	u_int mode; //0=>read  1=>write 
-};
+#include <sys/stat.h>
+#include <unistd.h>
+#include <openssl/sha.h>
+#include "bitio.h"
 
 
-struct bitio* bit_open(const char* name,u_int mode);
 
-int bit_close(struct bitio * b);
+typedef struct info
+{
+	char alg_type[4];
+	uint16_t dictionary_size;
+	uint16_t symbol_size;
+	char file_name[40];
+	off_t original_size; //32bit
+	time_t time;	//32bit
+	unsigned char sha1[SHA_DIGEST_LENGTH];
+	uint32_t number_of_symbols; // number of symbols iserted in the file, used for SHA1
 
-int bit_write(struct bitio* b, u_int size, uint64_t data);
+}info;
 
-int bit_read(struct bitio* b, u_int size, uint64_t* data);
+info * addinfo(struct bitio * file,struct bitio * file_to_compress ,char * name_of_file,long file_position,uint16_t size_dictionary);
+info * getinfo(struct bitio * file);
+unsigned char * getSHA1(unsigned long position,int size,struct bitio * file,info* in);
 
-int flush_out_buffer(struct bitio* b);

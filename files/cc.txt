@@ -1,3 +1,0 @@
-<html>        
-<head> 
-<script   type="text/javascript">        var   c=5;    function   functionOne()   {   alert('You   clicked   the   top   text');   }    function functionTwo()   {   alert('You clicked   the bot    m   text'); }    function cliccaggio(x,y) { alert('Somma:   '+(x+y+c));   }       </script>   </head>  <body>   <p><a   href="#"   onClick="functionOne();">Top   Text</a></p>     <p><a   href="javascript:functionTwo();">Bot    m   Text</a></p>     <but on   name="ciccio" onClick="cliccaggio(2,6);">Cliccami</but    n>   </body></html

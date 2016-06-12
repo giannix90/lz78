@@ -25,6 +25,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <sys/types.h>
+#include <openssl/sha.h>
 
 #include "lz78.h"
 
@@ -42,10 +43,12 @@ int pair_fun(int x, int y){
 uint64_t 
 hash(uint64_t num, char c)
 {
+	/*
 	int prime_1=101;
 	int prime_2=17;
-	
+	*/
 	//int ris=(num*prime_1+c*prime_2)%hash_table_size;//hash with modulus
+	
 	uint64_t ris=((num<<7)+c)%hash_table_size;
 	if(hash_table[ris].key.c!=c && hash_table[ris].key.c>='a' && hash_table[ris].key.c<= 'z' )printf("Collision in hash table!!!!!!!!!!!!!!!\n");//if i try to write where the cell is full, then i have a collision
 	return ris; //i return the index of hash table
@@ -56,16 +59,16 @@ hash(uint64_t num, char c)
 int 
 hash_fill(lz78_compressor* in)
 { 
-	char c=0x09;//start from tab
+	char c=0x01;//start from tab
 	while(c<=0x7E){	//until ~
-		hash_table[hash(0,c)].child_index=(c-0x09)+1; //the 1° node is reserved to the root node
+		hash_table[hash(0,c)].child_index=(c-0x01)+1; //the 1 node is reserved to the root node
 		(hash_table[hash(0,c)].key).father_num=0;
 		(hash_table[hash(0,c)].key).c=c;
 		c++;	
 	}
 	
 	
-	in->counter_child_tree=(c-0x09); //counter tree's node for the next child
+	in->counter_child_tree=(c-0x01); //counter tree's node for the next child
 	return 0;
 }
 
@@ -113,7 +116,7 @@ int
 look_up_and_add(int num,char c,lz78_compressor * in)
 {
 	if((hash_table[hash(num,c)]).child_index!=0){
-		printf("Look_up: %c\n",c);
+		//printf("Look_up: %c\n",c);
 		return 0;
 	}
 
@@ -132,15 +135,15 @@ look_up_and_add(int num,char c,lz78_compressor * in)
 void 
 array_fill(lz78_decompressor * in)
 {
-	char c=0x09;
+	char c=0x01;
 	while(c<=0x7E){	
 		
-		array_tree[(int)(c-0x09)].father_num=0;
-		array_tree[(int)(c-0x09)].c=c;
+		array_tree[(int)(c-0x01)].father_num=0;
+		array_tree[(int)(c-0x01)].c=c;
 		c++;	
 	}
 
-	in->counter_child_tree=(int)(c-0x09);
+	in->counter_child_tree=(int)(c-0x01);
 	//printf("Num: %d\n",in->counter_child_tree);
 }
 
@@ -160,7 +163,6 @@ compress(char * str_in,lz78_compressor * in, struct bitio* file)
 {
 	char* buf=malloc(16); 
 	uint64_t inp=0;
-	int r=0;
 	int father=0;
 	int child=0;	
 	int go=1;
@@ -170,12 +172,22 @@ compress(char * str_in,lz78_compressor * in, struct bitio* file)
 
 	struct bitio*file_out=bit_open(in->output_file,1);
 
+	/*After compress i put the info of the file at the beginning of the file*/
+	info* ret_info=malloc(sizeof(info));
+
+	/*Put the info at the beginning of the file and return a structure with the info*/
+	ret_info=addinfo(file_out,file,in->file_to_compress,0,in->d_max);
+	in->number_of_code^=in->number_of_code; //XOR
+
+	reset:
+
 	if(flag==0){
 		/*Only for the first character*/
 		ret=bit_read(file,(u_int)8,&inp);
 		buf[1]=(char)(inp&((1UL<<8)-1));
-		printf("Ric: %X\n",buf[1] & 0xff);
+		//printf("Ric: %X\n",buf[1] & 0xff);
 	}
+
 
 	printf("-----------\n");
 	while(go==1){
@@ -185,29 +197,50 @@ compress(char * str_in,lz78_compressor * in, struct bitio* file)
 
 			buf[0]=buf[1];		
 			father=hash_table[hash(child,(char)(inp&((1UL<<8)-1)))].child_index;
-			printf("Padre: %d\n",father);
+			//printf("Padre: %d\n",father);
 			ret=bit_read(file,(u_int)8,&inp);	
 			buf[1]=(char)(inp&((1UL<<8)-1));
-			printf("Ric: %X\n",buf[1] & 0xff);
+			//printf("Ric: %X\n",buf[1] & 0xff);
 			child=father;
 		}
 
 		//printf("Output: %X Char %c\n",father & 0xff,buf[1]);
 		bit_write(file_out,16, (int) father);
+		in->number_of_code++;
 		father=0; 	// restart from the root
 		child=0;
 		c++;
 		if(ret==0)break;
-		
+		if(in->counter_child_tree>=in->d_max-1){
+			//I need to empty the tree and restart the compressio from the current position
+			free(hash_table);
+			in->counter_child_tree=0;
+			hash_init(6700417,in);
+			goto reset;
+		};	
 	
 	}
 
-	/*After compress i put the info of the file at the beginning of the file*/
-	info* ret_info=malloc(sizeof(info));
+	flush_out_buffer(file_out);
+	//add the SHA-1 of the compressed-file in the header
+	
+	long old_index=ftell(file_out->f);//save the curren pointer to position of the file
+	struct bitio* file_out_rd=bit_open(in->output_file,0);//I re-open the output file but in in read mode this time
+	getSHA1(88,in->number_of_code,file_out_rd,ret_info); //I do the SHA-1 over the whole file
+	bit_close(file_out_rd);
+	fseek(file_out->f,(long)0x40,SEEK_SET); //I write the SHA-1 hash in the correct position
+	//printf("SHA-1: ");
+	for (int i = 0; i < 20; i ++) {
+		bit_write(file_out,(u_int)8*sizeof(unsigned char),(unsigned char)ret_info->sha1[i]);
+       // printf(" %2x", (unsigned char)ret_info->sha1[i]);
+    }
 
-	/*Put the info at the beginning of the file and return a structure with the info*/
-	//addinfo(file_out,in->file_to_compress,0);
-		
+	bit_write(file_out,(u_int)32,in->number_of_code);
+
+    //printf("\n");
+    flush_out_buffer(file_out);
+
+	fseek(file_out->f,old_index,SEEK_SET); // restore the pointer of the file in order to close the file in the rigth way
 	//close the file descriptor
 	bit_close(file_out);
 }
@@ -247,6 +280,9 @@ decompress(struct bitio* file_to_read,struct bitio* file,lz78_decompressor* in)
 
 			//fseek(file_to_read->f,4,SEEK_SET);
 
+			in->info_ptr=getinfo(file_to_read);
+
+			reset:
 			while(x>=0){
 			
 				ret=bit_read(file_to_read,16,&inp);
@@ -262,8 +298,8 @@ decompress(struct bitio* file_to_read,struct bitio* file,lz78_decompressor* in)
 							
 				}
 				
-				if(ret==0) {
-					fine_file:printf("flush\n");
+				if(ret<=0) {
+					fine_file:printf("The file was correctly extracted...\n");
 					//no more data to read
 					flush_out_buffer(file);
 					break;
@@ -274,14 +310,14 @@ decompress(struct bitio* file_to_read,struct bitio* file,lz78_decompressor* in)
 				
 				if(x==0){
 					prec_char=(int)(inp&((1UL<<16)-1))-1;
-					printf("ricevuto :%d Inserisco il nodo %d con padre %d\n",first_father,(int)in->counter_child_tree-1,prec_char);
+					//printf("ricevuto :%d Inserisco il nodo %d con padre %d\n",first_father,(int)in->counter_child_tree-1,prec_char);
 					array_tree[(int)in->counter_child_tree-1].father_num=(int)((inp&((1UL<<16)-1))-1);
 					in->counter_child_tree++;
 				}
 				if(x>0){
-					printf("Inserisco %c nel nodo %d temp:%d\n",array_tree[temp].c,(int)in->counter_child_tree-2,temp);
+					//printf("Inserisco %c nel nodo %d temp:%d\n",array_tree[temp].c,(int)in->counter_child_tree-2,temp);
 					array_tree[(int)in->counter_child_tree-2].c=array_tree[temp].c;
-					printf("Inserisco il nodo %d con padre %d\n",(int)in->counter_child_tree-1,(int)(inp&((1UL<<16)-1))-1);
+					//printf("Inserisco il nodo %d con padre %d\n",(int)in->counter_child_tree-1,(int)(inp&((1UL<<16)-1))-1);
 					/*I have to add a new node*/
 					array_tree[(int)in->counter_child_tree-1].father_num=(int)(inp&((1UL<<16)-1))-1;
 
@@ -292,12 +328,22 @@ decompress(struct bitio* file_to_read,struct bitio* file,lz78_decompressor* in)
 				
 				//out[i+1]='\0';
 				for(j=i;j>=0;j--){bit_write(file,8, out[j]);				
-				printf("%c",(out[j]));} // I print the buffer string
-				printf("\n"); 
+				//printf("%c",(out[j]));
+				} // I print the buffer string
+				//printf("\n"); 
 				i=0;
 				x++;
 				
 				out[0]='\0';
+
+				if(in->counter_child_tree>=in->d_max-1){
+					//need to empty the array based tree for the decompressor
+					free(array_tree);
+					in->counter_child_tree=0;
+					array_init(6700417,in);
+					x=0;
+					goto reset;
+				}
 				
 			}	
 			/*rewind(file_to_read->f);

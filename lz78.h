@@ -24,10 +24,27 @@
 #include <string.h>
 #include <errno.h>
 #include <sys/types.h>
-//#include "bitio.h"
 #include "info.h"
 
-int hash_table_size;
+#define SIZE_OF_HASH_TABLE 78644
+
+/*
+ *	78644 == dictionary_size + 20% =>open hash
+ *	6700417 maximum_size for hash_table => no collision => no open hash =>max velocity
+*/
+
+#if 0
+
+typedef struct _lz78_compressor lz78_compressor;
+
+typedef struct _lz78_decompressor lz78_decompressor;
+
+typedef struct _array_decompressor_element array_decompressor_element;
+
+typedef struct _hash_key hash_key;
+
+typedef struct _hash_elem hash_elem;
+#endif
 
 
 typedef struct lz78_compressor{
@@ -36,33 +53,53 @@ typedef struct lz78_compressor{
 	char* output_file;
 	uint32_t counter_child_tree; 
 	struct hash_elem * hash_table_pointer;
+	uint32_t number_of_code; //number of value (number) inserted into the file
 } lz78_compressor;
+
 
 typedef struct lz78_decompressor{
 	uint32_t d_max;
 	char * file_to_decompress;
 	char* output_file;
 	uint32_t counter_child_tree; 
+	uint32_t number_of_code;
+	struct array_decompressor_element* decompressor_tree_pointer;
+	info * info_ptr;
 } lz78_decompressor;
 
+
+
 typedef struct array_decompressor_element{
-	char c;
+	uint8_t c;
 	int father_num;
 } array_decompressor_element;
 
-typedef struct hash_key{
+
+
+typedef struct _hash_key{
 	int father_num;
-	char c;
+	uint8_t c;
 } hash_key;
+
+
 
 typedef struct hash_elem{
 	hash_key key;
 	uint32_t child_index;
+	int filled; //this number is a flag that signal if the elem is occupied
+ 	struct hash_elem * next; //used for open hash
 } hash_elem;
+
+
+int hash_table_size;
+
 
 hash_elem * hash_table;	//compressor tree
 
+
 array_decompressor_element* array_tree; // decompressor tree
+
+
 
 void compress(char * str_in,lz78_compressor * in, struct bitio* file);
 
@@ -72,7 +109,7 @@ void init_compressor(char * str_in,lz78_compressor * in);
 
 void init_decompressor(char * str_in,lz78_decompressor * in);
 
-uint64_t hash(uint64_t num, char c);
+uint64_t hash(uint64_t num, uint8_t c);
 
 int hash_init(uint64_t size,struct lz78_compressor* in);
 

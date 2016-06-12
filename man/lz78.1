@@ -6,7 +6,7 @@ lz78 \- compress a set of file
 .SH SYNOPSIS
 lz78 [-option] [arguments]
 .SH DESCRIPTION
-lz78 i a compressor based on a Lempel Ziv 78 algorithm--- lz78.linux(1) instead.
+lz78 is a compressor based on a Lempel Ziv 78 algorithm--- lz78.linux(1) instead.
 .SH OPTIONS
 	-c compress a file
 
@@ -14,8 +14,30 @@ lz78 i a compressor based on a Lempel Ziv 78 algorithm--- lz78.linux(1) instead.
 
 	-d decopress a file
 
-	-l info on a .lz78 file
+	-l --list info on a .lz78 file--
+.LP	//Break line
+	For each compressed file, list the following fields:
+.RS 3 //indentazione di 3 char
+     Algorithm: Type of used algorithm
 
+	Size of dictionary: number of maximun nodes available in dictionary
+
+	Size of each symbol: size of symbols
+.LP
+	File name: name of the original size
+.LP
+	Size of the original file: size of uncompressed file
+.LP	
+	compressed size: size of the compressed file
+.LP	
+	ratio: compression ratio (0.0% if unknown)
+.LP	
+	Time of last modified: modification time
+.LP	
+	SHA-1 checksum: used to guaranteee the integrity of the files
+
+.LP
+.RS -3 //indentazione -3 char
 	-s set dictionary size
 .SH EXAMPLES
 	

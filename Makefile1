@@ -1,27 +1,30 @@
-HDR = lz78.o bitio.o main.o info.o
-SRC = ${HDR:.h=.c}
-ESRC = main.c
+OBJ = lz78.o bitio.o main.o info.o
+SRC = ${OBJ:.o=.c}
 CFLAGS=-Wall -O2 -Werror
 BIN=/bin
 RM= rm
 
+.SUFFIXES: .c .o
+
+.c.o:
+	$(CC) -c $(CFLAGS) $<
+
 all: lz78
-	
-	
-lz78: $(HDR)
-	$(CC) $(CFLAGS) $(HDR) -o lz78 -lcrypto
 
-main.o:	main.c lz78.h
-		cc $(CFLAGS) -c main.c
+lz78: $(OBJ)
+	$(CC) $(CFLAGS) $(OBJ) -o lz78 -lcrypto
 
-lz78.o: lz78.c lz78.h bitio.h info.h
-		cc $(CFLAGS) -c lz78.c
+main.o:	lz78.h main.c
+		
 
-bitio.o: bitio.c bitio.h
-		cc $(CFLAGS) -c bitio.c
+lz78.o:  lz78.h bitio.h info.h
+		
 
-info.o:	info.c info.h bitio.h
-		cc $(CFLAGS) -c info.c 
+bitio.o:  bitio.h
+		
+
+info.o:	 info.h bitio.h
+		 
 
 install:
 	@echo \install..\N

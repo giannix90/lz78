@@ -18,25 +18,32 @@
 * along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <time.h>
+#include <stdint.h>
 #include <stdio.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#include "bitio.h"
+#include <stdlib.h>
+#include <math.h>
+#include <string.h>
+#include <errno.h>
+#include <sys/types.h>
+
+
+struct bitio{
+	FILE * f; //pointer to the file
+	uint64_t data; // local buffer
+	u_int wp; //write index pointer into the buffer
+	u_int rp; //read index pointer into the buffer
+	u_int mode; //0=>read  1=>write 
+};
 
 
 
-typedef struct info
-{
-	char alg_type[4];
-	uint64_t dictionary_size;
-	uint32_t symbol_size;
-	char file_name[40];
-	off_t original_size;
-	time_t time;
-	int checksum;
-}info;
+struct bitio* bit_open(const char* name,u_int mode);
 
-info * addinfo(struct bitio * file, char * name_of_file,long file_position);
-info * getinfo(struct bitio * file,char * name_of_file,long file_position);
+int bit_close(struct bitio * b);
+
+int bit_write(struct bitio* b, u_int size, uint64_t data);
+
+int bit_read(struct bitio* b, u_int size, uint64_t* data);
+
+int flush_out_buffer(struct bitio* b);
 
