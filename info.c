@@ -92,13 +92,11 @@ addinfo(struct bitio * file,struct bitio * file_to_compress ,char * name_of_file
 
 	
 	//I put the original size of the file
-	//bit_write(file,(u_int)sizeof(off_t)*8,out_info->original_size);
 	bit_write(file,(u_int)(sizeof(off_t)*8)/2,out_info->original_size&((1UL<<((sizeof(off_t)*8)/2))-1));
 	bit_write(file,(u_int)(sizeof(off_t)*8)/2,out_info->original_size>>((sizeof(off_t)*8)/2)&((1UL<<((sizeof(off_t)*8)/2))-1));
 
 
 	//I pute the time
-	//bit_write(file,(u_int)sizeof(time_t)*8,out_info->time);
 	bit_write(file,(u_int)(sizeof(time_t)*8)/2,out_info->time&((1UL<<((sizeof(time_t)*8)/2))-1));
 	bit_write(file,(u_int)(sizeof(time_t)*8)/2,out_info->time>>((sizeof(time_t)*8)/2)&((1UL<<((sizeof(time_t)*8)/2))-1));
 	
@@ -109,7 +107,6 @@ addinfo(struct bitio * file,struct bitio * file_to_compress ,char * name_of_file
 
 	//I pute the umber of symbols iserted in the file
 	bit_write(file,(u_int)32,0xFFFFFFFF);
-	//flush_out_buffer(file);
 
 	return out_info;
 	
@@ -128,26 +125,21 @@ getinfo(struct bitio * file)
 	fseek(file->f,0,SEEK_SET);
 
 	/*get algorithm type*/
-	//printf("%s", "Algorithm: ");
 	for(int i=0;i<4;i++){
 		
 		bit_read(file,(u_int)8,&inp);
 		in_info->alg_type[i]=(char)(inp&((1UL<<8)-1));
-		//printf("%c", in_info->alg_type[i]);
 			
 	}
-	//printf("\n");
 
 	//get the dictionary size
 	bit_read(file,(u_int)16,&inp);
 	in_info->dictionary_size=(int)inp&((1UL<<16)-1);
-	//printf("%s: %d\n","Size of dictionary",in_info->dictionary_size);
-
+	
 	//get the symbol size
 	bit_read(file,(u_int)16,&inp);
 	in_info->symbol_size=(int)inp&((1UL<<16)-1);
-	//printf("%s: %d\n","Size of each symbol: ",in_info->symbol_size);
-
+	
 	//get the file name
 	int i=0;
 	for(i=0;i<40;i++){
@@ -156,14 +148,12 @@ getinfo(struct bitio * file)
 		in_info->file_name[i]=(char)inp&((1UL<<8)-1);	
 	}
 	in_info->file_name[39]='\0';
-	//printf("%s : %s\n","File name",in_info->file_name);
-
+	
 	//get the original size
 
 	bit_read(file,(u_int)8*sizeof(off_t),&inp);
 	in_info->original_size=inp;
-	//printf("%s :%ld bytes\n","Size of the original file (uncompressed size)",in_info->original_size);
-	
+		
 	//get the time
 	bit_read(file,(u_int)8*sizeof(time_t),&inp);
 	in_info->time=inp&((1UL<<32)-1);
@@ -171,17 +161,14 @@ getinfo(struct bitio * file)
 	char text[100];
 	struct tm *t = localtime(&in_info->time);
 	strftime(text, sizeof(text)-1, "%d %m %Y %H:%M", t);
-	//printf("Time of last modified: %s \n", text);
 
 
 	//get the checksum
-	//printf("%s","SHA-1 checksum:" );
 	for(i=0;i<20;i++){
 
 		bit_read(file,(u_int)8,&inp);
 		in_info->sha1[i]=inp&((1UL<<8*sizeof(unsigned char))-1);
-		//printf(" %2x", (unsigned char)in_info->sha1[i]);
-				
+						
 	}
 
 	bit_read(file,(u_int)32,&inp);
@@ -211,8 +198,6 @@ getSHA1(unsigned long position,int size,struct bitio* file,info * in){
 		bit_read(file,(u_int)16,&inp);
 		data[i]=(char)inp&((1UL<<8)-1);
 		data[i+1]=(char)(inp>>8)&((1UL<<8)-1);
-		//data[i]=(uint16_t)inp&((1UL<<16)-1);
-		//printf(" Data: %d-%d\n",data[i],data[i+1]);
 	}
 
 	//unsigned char hash[SHA_DIGEST_LENGTH];

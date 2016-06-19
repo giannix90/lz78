@@ -329,13 +329,14 @@ look_up_array(int index,lz78_decompressor * in)
 {
 	if(in->decompressor_tree_pointer[index].father_num==0){ 
 
-		//when i reach the upper level (node attached to the root) i return the flag 0x0100
-		return 0x0100;
+		//when i reach the upper level (node attached to the root) i set the flag 0x0100 and return the value 0x<01,father_num>
+		//return 0x0100;
+		return (uint16_t)((in->decompressor_tree_pointer[index].c&0x00FF)|0x0100);		
 	}
 
 	// i return uint16_t becouse in the most significant bit i return the flag wich signal the root	
 	
-	return(uint8_t)in->decompressor_tree_pointer[index].c; //normally return the value of the node
+	return(uint16_t)in->decompressor_tree_pointer[index].c&0x00FF; //normally return the value of the node
 }
 
 
@@ -528,11 +529,21 @@ decompress(struct bitio* file_to_read,struct bitio* file,lz78_decompressor* in)
 				if(temp==257)
 					goto fine_file; // i received the EOF symbol
 
+
+
+				if(ret<=0) {
+					//no more data to read
+	fine_file:		printf("The file was correctly extracted...\n");
+					flush_out_buffer(file);
+					break;
+				}
+
+
 /*Obtain a branch of the tree*/
 				
-				while((first_char=look_up_array(temp,in))!=(uint16_t)0x0100){ 
+				while(!((first_char=look_up_array(temp,in))&(uint16_t)0x0100)){ 
 
-					//rise up the tree until find the root (return the value 0x0100 if i have reach the root)
+					//rise up the tree until find the root (return the value with 0x0100 flag if i have reach the root)
 
 					out[i]=first_char&((1UL<<8)-1); // fill the local buffer out 
 					temp=(int)get_elem_array_tree(temp,in)->father_num; //rise on the father
@@ -541,16 +552,9 @@ decompress(struct bitio* file_to_read,struct bitio* file,lz78_decompressor* in)
 				}
 				
 
-				out[i]=(uint8_t)get_elem_array_tree(temp,in)->c; // add the last char of the branch becouse the loop exit before add it to buffer out
+				out[i]=first_char&((1UL<<8)-1);; // add the last char of the branch becouse the loop exit before add it to buffer out
 /*--------------------------*/
 				
-
-				if(ret<=0) {
-					//no more data to read
-	fine_file:		printf("The file was correctly extracted...\n");
-					flush_out_buffer(file);
-					break;
-				}
 
 
 /*Update the tree*/

@@ -185,8 +185,7 @@ int main(int argc,char* argv[])
 
 			compress(arguments,compressor,file);
 			printf("%s %s %s\n",compressor->file_to_compress," compressed into :",compressor->output_file );
-			
-			//print_hash_table();			
+					
 
 			break;
 		case 'd':
