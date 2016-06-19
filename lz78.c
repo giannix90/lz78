@@ -117,25 +117,19 @@ hash_lookup(hash_elem * hash_table,uint64_t num,uint8_t c)
 	/*This function controll the vector of elem in row_index and return the pointer to the rigth elem*/
 	uint64_t hs=hash(num,c);
 
-	if(hash_table[hs].next==NULL && hash_table[hs].key.father_num==num && hash_table[hs].key.c==c)
-		
-		return &hash_table[hs]; //Case in wich i have only one element in a row, i return this
-
-	else{
-		
-		//Case in wich i have multiple element in one row, i need to find and return the rigth element
+		//simple list scroll
 		hash_elem* t;
-		t=&hash_table[hash(num,c)];
+		t=&hash_table[hs];
 		
-		while(t->next!=NULL){
+		while(t!=NULL){
 
 			if(t->key.father_num==num && t->key.c==c)
 				
+				//in this case i've found the element
 				return t;
 
 			t=t->next;
 		}
-	}
 	return NULL;
 }
 

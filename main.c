@@ -165,8 +165,9 @@ int main(int argc,char* argv[])
 
 		case 'c':
 			arguments=optarg;
-	
-			init_compressor(arguments,compressor);
+			char * file_name=malloc(strlen(arguments));
+			
+			init_compressor(strcpy(file_name,arguments),compressor);
 			printf("\n");
 			printf("File to compress : %s \n",compressor->file_to_compress);
 
