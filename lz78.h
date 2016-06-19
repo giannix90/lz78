@@ -76,7 +76,7 @@ typedef struct array_decompressor_element{
 
 
 
-typedef struct _hash_key{
+typedef struct hash_key{
 	int father_num;
 	uint8_t c;
 } hash_key;

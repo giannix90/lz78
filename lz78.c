@@ -31,7 +31,7 @@
 
 
 void 
-insert_tail_open_hash(hash_elem *pl,uint64_t num, uint8_t c,uint32_t child_index,lz78_compressor* in)
+insert_tail_open_hash(hash_elem *pl,uint64_t num, uint8_t c,uint32_t child_index)
 {
 
 	hash_elem* t;
@@ -78,8 +78,8 @@ hash_insert(uint64_t num, uint8_t c,uint32_t child_index,lz78_compressor* in)
 {
 
 	uint64_t hs=hash(num,c);
-	//printf("haa %x\n",hash_table[hs].filled);
-	if(hash_table[hs].filled==1 || hash_table[hs].child_index ){
+	
+	if(in->hash_table_pointer[hs].filled==1){
 
 		/*This means:
 				
@@ -87,7 +87,7 @@ hash_insert(uint64_t num, uint8_t c,uint32_t child_index,lz78_compressor* in)
 			*/
 
 		/*Hash row is already accupied (COLLISION)*/
-		insert_tail_open_hash(&hash_table[hs],num,c,child_index,in); // we insert the elem in tail
+		insert_tail_open_hash(&in->hash_table_pointer[hs],num,c,child_index); // we insert the elem in tail
 		in->counter_child_tree++;
 		return -1;
 
@@ -95,16 +95,21 @@ hash_insert(uint64_t num, uint8_t c,uint32_t child_index,lz78_compressor* in)
 	else{
 		
 		//Empty element case: i add in the simple hash table
-		hash_table[hs].child_index=child_index;
-		hash_table[hs].key.father_num=num;
-		hash_table[hs].key.c=c;
-		hash_table[hs].filled=1;
+		in->hash_table_pointer[hs].child_index=child_index;
+		in->hash_table_pointer[hs].key.father_num=num;
+		in->hash_table_pointer[hs].key.c=c;
+		in->hash_table_pointer[hs].filled=1;
 		in->counter_child_tree++;
 		return 0;
 	}	
 }
 
 
+/*
+*
+*	hash_lookup return the pointer to the hash_elem if found it, NULL otherwise
+*
+*/
 
 hash_elem *
 hash_lookup(hash_elem * hash_table,uint64_t num,uint8_t c)
@@ -112,7 +117,7 @@ hash_lookup(hash_elem * hash_table,uint64_t num,uint8_t c)
 	/*This function controll the vector of elem in row_index and return the pointer to the rigth elem*/
 	uint64_t hs=hash(num,c);
 
-	if(hash_table[hs].next==NULL)
+	if(hash_table[hs].next==NULL && hash_table[hs].key.father_num==num && hash_table[hs].key.c==c)
 		
 		return &hash_table[hs]; //Case in wich i have only one element in a row, i return this
 
@@ -148,12 +153,38 @@ hash(uint64_t num, uint8_t c)
 
 
 
+void 
+_free_list(hash_elem *l)
+{
+   if (l != NULL) { 
+    _free_list(l->next);
+    free(l);
+   }
+}
+
+
+
+void
+open_hash_reset(lz78_compressor* in)
+{
+	for(uint32_t i=0;i<SIZE_OF_HASH_TABLE;i++){
+
+		if(in->hash_table_pointer[i].next!=NULL){
+
+			_free_list(in->hash_table_pointer[i].next);
+
+		}
+	}
+}
+
+
+
 //this function fill the tree for compressor with all the charapter
 int 
 hash_fill(lz78_compressor* in)
 { 
 	int x=0;
-	uint8_t c=0x00;//printf("%s\n","ok!!!!!" );start from START_FROM_HEADER 
+	uint8_t c=0x00;//start from 0x00 value
 
 	//0 is reserved for the root
 
@@ -239,7 +270,7 @@ look_up_and_add(int num,uint8_t c,lz78_compressor * in)
 
 	hash_elem* child=hash_lookup(in->hash_table_pointer,num,c);
 
-	if(child==NULL || child->key.father_num!=num || child->key.c!=c){
+	if(child==NULL){
 		/*
 		        -If i enter in this statement this means that don't exitst this child, then i have to insert it and return 0
 
@@ -271,9 +302,9 @@ array_fill(lz78_decompressor * in)
 		c++;	
 		x++;
 	}
-	//256 reserved for EOF
-	in->counter_child_tree=(int)(255)+3;
-	//printf("Num: %d\n",in->counter_child_tree);
+	//257 reserved for EOF
+	in->counter_child_tree=(int)(257)+1;
+	
 }
 
 
@@ -400,6 +431,8 @@ compress(char * str_in,lz78_compressor * in, struct bitio* file)
 		if(in->counter_child_tree>=in->d_max-1){
 
 			//I the dictionary reach the max size i need to empty the tree and restart the compressio from the current position
+
+			open_hash_reset(in);
 			memset(in->hash_table_pointer,0,sizeof(hash_elem)*SIZE_OF_HASH_TABLE); //reset the hash table structure
 			in->counter_child_tree=0;
 			hash_fill(in);
@@ -499,7 +532,7 @@ decompress(struct bitio* file_to_read,struct bitio* file,lz78_decompressor* in)
 				
 				while((first_char=look_up_array(temp,in))!=(uint16_t)0x0100){ 
 
-					//rise up the tree until find the root (return the value 0x0100 if i haven't reache the root)
+					//rise up the tree until find the root (return the value 0x0100 if i have reach the root)
 
 					out[i]=first_char&((1UL<<8)-1); // fill the local buffer out 
 					temp=(int)get_elem_array_tree(temp,in)->father_num; //rise on the father
