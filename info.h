@@ -33,8 +33,8 @@ typedef struct info
 	uint16_t dictionary_size;
 	uint16_t symbol_size;
 	char file_name[40];
-	off_t original_size; //32bit
-	time_t time;	//32bit
+	off_t original_size; 
+	time_t time;	
 	unsigned char sha1[SHA_DIGEST_LENGTH];
 	uint32_t number_of_symbols; // number of symbols iserted in the file, used for SHA1
 

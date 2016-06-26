@@ -167,13 +167,13 @@ int main(int argc,char* argv[])
 			arguments=optarg;
 			char * file_name=malloc(strlen(arguments));
 			
-			init_compressor(strcpy(file_name,arguments),compressor);
+			init_compressor(compressor,strcpy(file_name,arguments));
 			printf("\n");
 			printf("File to compress : %s \n",compressor->file_to_compress);
 
 			
 
-			if(hash_init(SIZE_OF_HASH_TABLE,compressor)){ //82MB used //7,5 Mb of Hash Table in main memory with prime=104729
+			if(hash_init(compressor,SIZE_OF_HASH_TABLE)){ //82MB used //7,5 Mb of Hash Table in main memory with prime=104729
 				printf("Hash initialization error\n");
 				_exit(-1);			
 			}
@@ -184,7 +184,7 @@ int main(int argc,char* argv[])
 			}
 			/*----------*/
 
-			compress(arguments,compressor,file);
+			compress(compressor,file);
 			printf("%s %s %s\n",compressor->file_to_compress," compressed into :",compressor->output_file );
 					
 
@@ -192,7 +192,7 @@ int main(int argc,char* argv[])
 		case 'd':
 			arguments=optarg;
 			char tmp_str[50];
-			init_decompressor(arguments,decompressor);	
+			init_decompressor(decompressor,arguments);	
 
 			file_to_read=bit_open(arguments,0);
 			info * j=getinfo(file_to_read);
@@ -210,13 +210,13 @@ int main(int argc,char* argv[])
 				file=bit_open("decompressed.txt",1);
 			}
 			
-			array_init(SIZE_OF_HASH_TABLE,decompressor);//4793//10007
+			array_init(decompressor,SIZE_OF_HASH_TABLE);//4793//10007
 			
 			int integrity;
 			print_info(j,file_to_read,0,&integrity);
 			
 			if(!integrity)
-				decompress(file_to_read,file,decompressor);
+				decompress(decompressor,file_to_read,file);
 
 			else {
 
@@ -229,7 +229,7 @@ rescan:
 				printf("\n");
 
 				switch(str[0]){
-				case 'y':	decompress(file_to_read,file,decompressor);
+				case 'y':	decompress(decompressor,file_to_read,file);
 							break;
 				case 'n': _exit(-1);
 							break;
@@ -240,7 +240,7 @@ rescan:
 		
 		case 'l':
 			arguments=optarg;
-			init_decompressor(arguments,decompressor);
+			init_decompressor(decompressor,arguments);
 			file=bit_open(decompressor->file_to_decompress,0);
 			printf("%s\n","------------------" );
 			printf("Info on %s\n",decompressor->file_to_decompress );

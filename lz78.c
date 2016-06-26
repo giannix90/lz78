@@ -31,22 +31,10 @@
 
 
 void 
-insert_tail_open_hash(hash_elem *pl,uint64_t num, uint8_t c,uint32_t child_index)
+insert_tail_open_hash(hash_elem *pl,uint64_t father, uint8_t c,uint32_t child_index)
 {
 
 	hash_elem* t;
-
-			/* empty list */
-  	if(pl==NULL) {
-
-    	pl=malloc(sizeof(struct hash_elem));
-    	(pl)->child_index=child_index;
-    	(pl)->key.father_num=num;
-    	(pl)->key.c=c;
-    	(pl)->filled=1;
-    	(pl)->next=NULL;
-    	return;
-  }
 
   			/* at least one element */
   	t=pl;
@@ -63,7 +51,7 @@ insert_tail_open_hash(hash_elem *pl,uint64_t num, uint8_t c,uint32_t child_index
 
 	/* update the element*/
   	t->child_index=child_index;
-  	t->key.father_num=num;
+  	t->key.father_num=father;
   	t->key.c=c;
   	t->filled=1;
   	t->next=NULL;
@@ -74,10 +62,10 @@ insert_tail_open_hash(hash_elem *pl,uint64_t num, uint8_t c,uint32_t child_index
 
 //this function insert a value inside hash table
 int
-hash_insert(uint64_t num, uint8_t c,uint32_t child_index,lz78_compressor* in)
+hash_insert(lz78_compressor* in,uint64_t father, uint8_t c,uint32_t child_index)
 {
 
-	uint64_t hs=hash(num,c);
+	uint64_t hs=hash(father,c);
 	
 	if(in->hash_table_pointer[hs].filled==1){
 
@@ -87,7 +75,7 @@ hash_insert(uint64_t num, uint8_t c,uint32_t child_index,lz78_compressor* in)
 			*/
 
 		/*Hash row is already accupied (COLLISION)*/
-		insert_tail_open_hash(&in->hash_table_pointer[hs],num,c,child_index); // we insert the elem in tail
+		insert_tail_open_hash(&in->hash_table_pointer[hs],father,c,child_index); // we insert the elem in tail
 		in->counter_child_tree++;
 		return -1;
 
@@ -96,7 +84,7 @@ hash_insert(uint64_t num, uint8_t c,uint32_t child_index,lz78_compressor* in)
 		
 		//Empty element case: i add in the simple hash table
 		in->hash_table_pointer[hs].child_index=child_index;
-		in->hash_table_pointer[hs].key.father_num=num;
+		in->hash_table_pointer[hs].key.father_num=father;
 		in->hash_table_pointer[hs].key.c=c;
 		in->hash_table_pointer[hs].filled=1;
 		in->counter_child_tree++;
@@ -112,10 +100,10 @@ hash_insert(uint64_t num, uint8_t c,uint32_t child_index,lz78_compressor* in)
 */
 
 hash_elem *
-hash_lookup(hash_elem * hash_table,uint64_t num,uint8_t c)
+hash_lookup(hash_elem * hash_table,uint64_t father,uint8_t c)
 {
 	/*This function controll the vector of elem in row_index and return the pointer to the rigth elem*/
-	uint64_t hs=hash(num,c);
+	uint64_t hs=hash(father,c);
 
 		//simple list scroll
 		hash_elem* t;
@@ -123,7 +111,7 @@ hash_lookup(hash_elem * hash_table,uint64_t num,uint8_t c)
 		
 		while(t!=NULL){
 
-			if(t->key.father_num==num && t->key.c==c)
+			if(t->key.father_num==father && t->key.c==c && t->filled)
 				
 				//in this case i've found the element
 				return t;
@@ -137,10 +125,10 @@ hash_lookup(hash_elem * hash_table,uint64_t num,uint8_t c)
 
 //this hash function return the index row of hash table for a pair <num,index>
 uint64_t 
-hash(uint64_t num, uint8_t c)
+hash(uint64_t father, uint8_t c)
 {
 	
-	int ris=((num<<8)+c)%SIZE_OF_HASH_TABLE;
+	int ris=((father<<8)+c)%SIZE_OF_HASH_TABLE;
 
 	return ris; //i return the index of hash table
 }
@@ -150,10 +138,19 @@ hash(uint64_t num, uint8_t c)
 void 
 _free_list(hash_elem *l)
 {
-   if (l != NULL) { 
-    _free_list(l->next);
-    free(l);
-   }
+   hash_elem * tmp;
+   
+   if(l==NULL) 
+   		return;  //list already empty
+   
+   	while(l != NULL){
+
+   		tmp=l;	//save the head
+
+   		l=l->next; //move forward
+   		
+   		free(tmp); //free the head
+   	}
 }
 
 
@@ -177,13 +174,13 @@ open_hash_reset(lz78_compressor* in)
 int 
 hash_fill(lz78_compressor* in)
 { 
-	int x=0;
+	uint32_t x=0;
 	uint8_t c=0x00;//start from 0x00 value
 
 	//0 is reserved for the root
 
 	while(x<=255){	//until 0xFF
-			hash_insert(0,(uint8_t)c,(uint32_t)x+1,in);
+			hash_insert(in,0,(uint8_t)c,(uint32_t)x+1);
 
 		c++;
 		x++;	
@@ -191,7 +188,7 @@ hash_fill(lz78_compressor* in)
 	
 	//257  is reserved for EOF
 
-	in->counter_child_tree=(257)+1; //counter tree's node for the next child
+	in->counter_child_tree=(MY_EOF)+1; //counter tree's node for the next child
 	return 0;
 }
 
@@ -199,7 +196,7 @@ hash_fill(lz78_compressor* in)
 
 //this function allocate the hash structure
 int 
-hash_init(uint64_t size,lz78_compressor* in)
+hash_init(lz78_compressor* in,uint64_t size)
 {
 
 	hash_table_size=size;
@@ -240,18 +237,18 @@ print_hash_table()
 
 /*Initialize the lz78_compressor structure*/
 void 
-init_compressor(char * str_in,lz78_compressor * in)
+init_compressor(lz78_compressor * in,char * input_file_name)
 {
-	in->file_to_compress=str_in;
+	in->file_to_compress=input_file_name;
 }
 
 
 
 void 
-init_decompressor(char * str_in,lz78_decompressor * in)
+init_decompressor(lz78_decompressor * in,char * input_compressed_file_name)
 {	
 	//I initialize the decompressor structure
-	in->file_to_decompress=str_in;
+	in->file_to_decompress=input_compressed_file_name;
 
 }
 
@@ -259,10 +256,10 @@ init_decompressor(char * str_in,lz78_decompressor * in)
 
 //this function return the number of child if the node is present, 0 otherwise, in this case this function add the node 
 uint32_t 
-look_up_and_add(int num,uint8_t c,lz78_compressor * in)
+look_up_and_add(lz78_compressor * in,int father,uint8_t c)
 {
 
-	hash_elem* child=hash_lookup(in->hash_table_pointer,num,c);
+	hash_elem* child=hash_lookup(in->hash_table_pointer,father,c);
 
 	if(child==NULL){
 		/*
@@ -271,7 +268,7 @@ look_up_and_add(int num,uint8_t c,lz78_compressor * in)
 		*/
 
 		//add the new node to the branch
-		hash_insert(num,c,in->counter_child_tree,in);
+		hash_insert(in,father,c,in->counter_child_tree);
 		return 0;
 	}
 
@@ -287,17 +284,17 @@ look_up_and_add(int num,uint8_t c,lz78_compressor * in)
 void 
 array_fill(lz78_decompressor * in)
 {
-	int x=0;
+	uint32_t x=0;
 	uint8_t c=0x00;
 	while(x<=255){	
 		
-		in->decompressor_tree_pointer[(uint8_t)x+1].father_num=0;
-		in->decompressor_tree_pointer[(uint8_t)x+1].c=c;
+		in->decompressor_tree_pointer[x+1].father_num=0;
+		in->decompressor_tree_pointer[x+1].c=c;
 		c++;	
 		x++;
 	}
 	//257 reserved for EOF
-	in->counter_child_tree=(int)(257)+1;
+	in->counter_child_tree=(MY_EOF)+1;
 	
 }
 
@@ -305,7 +302,7 @@ array_fill(lz78_decompressor * in)
 
 //i have to allocate the array structure for decompressor tree
 void 
-array_init(uint64_t size,lz78_decompressor * in)
+array_init(lz78_decompressor * in,uint64_t size)
 {
 	array_tree=malloc(sizeof(array_decompressor_element)*size);
 	in->decompressor_tree_pointer=array_tree;
@@ -319,7 +316,7 @@ array_init(uint64_t size,lz78_decompressor * in)
 		this special flag signal the end of the branch
 */
 uint16_t 
-look_up_array(int index,lz78_decompressor * in)
+look_up_array(lz78_decompressor * in,int index)
 {
 	if(in->decompressor_tree_pointer[index].father_num==0){ 
 
@@ -336,7 +333,7 @@ look_up_array(int index,lz78_decompressor * in)
 
 
 array_decompressor_element*
-get_elem_array_tree(int index,lz78_decompressor * in)
+get_elem_array_tree(lz78_decompressor * in,int index)
 {
 	return &in->decompressor_tree_pointer[index];
 }
@@ -344,15 +341,15 @@ get_elem_array_tree(int index,lz78_decompressor * in)
 
 
 int
-insert_into_array(int index,lz78_decompressor * in,uint8_t *cha,int *father)
+insert_into_array(lz78_decompressor * in,int index,uint8_t *cha,int *father)
 {
 
 	if((void*)cha != NULL){
-		get_elem_array_tree(index,in)->c=*cha;
+		get_elem_array_tree(in,index)->c=*cha;
 	}
 
 	if((void*)father != NULL){
-		get_elem_array_tree(index,in)->father_num=*father;	
+		get_elem_array_tree(in,index)->father_num=*father;	
 	}
 
 	if (((void*)cha )==NULL && ((void*)father) == NULL)
@@ -366,7 +363,7 @@ insert_into_array(int index,lz78_decompressor * in,uint8_t *cha,int *father)
 
 /*--Function for compress file--*/
 void 
-compress(char * str_in,lz78_compressor * in, struct bitio* file)
+compress(lz78_compressor * in, struct bitio* file)
 {
 	char buf;
 	uint64_t inp=0;
@@ -400,11 +397,11 @@ compress(char * str_in,lz78_compressor * in, struct bitio* file)
 		
 /*Scroll the branch of the tree and update it at the end*/
 
-		while((child=look_up_and_add(child,buf,in))!=0){
+		while((child=look_up_and_add(in,child,buf))!=0){
 
 			//repeat the operation until i don't fint a node =>scroll the tree
 			father=child;
-			ret=bit_read(file,(u_int)8,&inp);	//read a new char
+			ret=bit_read(file,8,&inp);	//read a new char
 			buf=(uint8_t)(inp&((1UL<<8)-1));
 
 		}
@@ -442,10 +439,11 @@ compress(char * str_in,lz78_compressor * in, struct bitio* file)
 
 
 /*---EOF---*/
-	bit_write(file_out,16, 257); //put the EOF (Node 257 of tree)
+	bit_write(file_out,16, MY_EOF);
 	in->number_of_code++;
 	flush_out_buffer(file_out);
 /*---------*/
+
 
 
 /*Function for the integrity of the file*/
@@ -462,7 +460,7 @@ compress(char * str_in,lz78_compressor * in, struct bitio* file)
 	fseek(file_out->f,(long)0x40,SEEK_SET); //I write the SHA-1 hash in the correct position
 
 	for (int i = 0; i < 20; i ++) {
-		bit_write(file_out,(u_int)8*sizeof(unsigned char),(unsigned char)ret_info->sha1[i]);
+		bit_write(file_out,8,(unsigned char)ret_info->sha1[i]);
     }
 
 	bit_write(file_out,(u_int)32,in->number_of_code);
@@ -484,7 +482,7 @@ compress(char * str_in,lz78_compressor * in, struct bitio* file)
 
 /*--Function for Decompressor--*/
 void 
-decompress(struct bitio* file_to_read,struct bitio* file,lz78_decompressor* in)
+decompress(lz78_decompressor* in,struct bitio* file_to_read,struct bitio* file)
 {
 			
 			uint8_t out[65536];	//max size of a branch equal to size of dictionary		
@@ -520,7 +518,7 @@ decompress(struct bitio* file_to_read,struct bitio* file,lz78_decompressor* in)
 				father_num=temp=(int)(inp&((1UL<<16)-1));
 
 
-				if(temp==257)
+				if(temp==MY_EOF)
 					goto fine_file; // i received the EOF symbol
 
 
@@ -535,12 +533,12 @@ decompress(struct bitio* file_to_read,struct bitio* file,lz78_decompressor* in)
 
 /*Obtain a branch of the tree*/
 				
-				while(!((first_char=look_up_array(temp,in))&(uint16_t)0x0100)){ 
+				while(!((first_char=look_up_array(in,temp))&(uint16_t)0x0100)){ 
 
 					//rise up the tree until find the root (return the value with 0x0100 flag if i have reach the root)
 
 					out[i]=first_char&((1UL<<8)-1); // fill the local buffer out 
-					temp=(int)get_elem_array_tree(temp,in)->father_num; //rise on the father
+					temp=(int)get_elem_array_tree(in,temp)->father_num; //rise on the father
 					i++;
 							
 				}
@@ -559,17 +557,17 @@ decompress(struct bitio* file_to_read,struct bitio* file,lz78_decompressor* in)
 					//(Only from the second symbol)
 
 					//Insert the value of the previous node (Only from the second symbol)
-					previous_value_of_node=(uint8_t)get_elem_array_tree(temp,in)->c;
-					insert_into_array((int)in->counter_child_tree-1,in,&previous_value_of_node,NULL);
+					previous_value_of_node=(uint8_t)get_elem_array_tree(in,temp)->c;
+					insert_into_array(in,(int)in->counter_child_tree-1,&previous_value_of_node,NULL);
 
 			
 					//If i have received the last node insert, i have to update the output string becouse i didn't have the char of the node received
-					out[0]=((int)in->counter_child_tree-1==father_num)?(uint8_t)get_elem_array_tree(temp,in)->c:(uint8_t)get_elem_array_tree(father_num,in)->c; 
+					out[0]=((int)in->counter_child_tree-1==father_num)?(uint8_t)get_elem_array_tree(in,temp)->c:(uint8_t)get_elem_array_tree(in,father_num)->c; 
 					
 				}
 
 					/*I have to add a new node*/
-					insert_into_array((int)in->counter_child_tree,in,NULL,&father_num);
+					insert_into_array(in,(int)in->counter_child_tree,NULL,&father_num);
 					in->counter_child_tree++;
 				
 /*----------------*/

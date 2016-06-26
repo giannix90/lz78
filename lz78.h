@@ -27,6 +27,7 @@
 #include "info.h"
 
 #define SIZE_OF_HASH_TABLE 78644
+#define MY_EOF 257
 
 /*
  *	78644 == dictionary_size + 20% =>open hash
@@ -101,18 +102,18 @@ array_decompressor_element* array_tree; // decompressor tree
 
 
 
-void compress(char * str_in,lz78_compressor * in, struct bitio* file);
+void compress(lz78_compressor * in, struct bitio* file);
 
-void decompress(struct bitio* file_to_read,struct bitio* file,lz78_decompressor* in);
+void decompress(lz78_decompressor* in,struct bitio* file_to_read,struct bitio* file);
 
-void init_compressor(char * str_in,lz78_compressor * in);
+void init_compressor(lz78_compressor * in,char * str_in);
 
-void init_decompressor(char * str_in,lz78_decompressor * in);
+void init_decompressor(lz78_decompressor * in,char * str_in);
 
 uint64_t hash(uint64_t num, uint8_t c);
 
-int hash_init(uint64_t size,struct lz78_compressor* in);
+int hash_init(struct lz78_compressor* in,uint64_t size);
 
-void array_init(uint64_t size,struct lz78_decompressor* in);
+void array_init(struct lz78_decompressor* in,uint64_t size);
 
 void print_hash_table();
